@@ -1,4 +1,4 @@
-name: Universal Android APK Builder
+name: Universal Android & Flutter APK Builder
 
 on:
   push:
@@ -22,13 +22,28 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      # --- Flutter প্রজেক্ট হলে এই অংশটি চলবে ---
+      - name: Setup Flutter
+        if: hashFiles('pubspec.yaml') != ''
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Build Flutter APK
+        if: hashFiles('pubspec.yaml') != ''
+        run: |
+          flutter pub get
+          flutter build apk --release
+
+      # --- Native Android (Java/Kotlin) প্রজেক্ট হলে এই অংশটি চলবে ---
       - name: Setup Gradle (if gradlew is missing)
-        if: hashFiles('gradlew') == ''
+        if: hashFiles('pubspec.yaml') == '' && hashFiles('gradlew') == ''
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
 
-      - name: Build APK
+      - name: Build Native Android APK
+        if: hashFiles('pubspec.yaml') == ''
         run: |
           if [ -f "./gradlew" ]; then
             chmod +x gradlew
@@ -37,8 +52,11 @@ jobs:
             gradle assembleDebug
           fi
 
+      # --- তৈরি হওয়া APK ডাউনলোডের জন্য আপলোড ---
       - name: Upload Built APK
         uses: actions/upload-artifact@v4
         with:
           name: Compiled-App-APK
-          path: '**/build/outputs/apk/**/*.apk'
+          path: |
+            app/build/outputs/apk/**/*.apk
+            build/app/outputs/flutter-apk/*.apk
